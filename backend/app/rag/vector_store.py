@@ -1,28 +1,35 @@
 """
-Real vector-store RAG, backed by Chroma (persistent, local, on-disk).
+Real vector-store RAG, backed by Chroma.
 
-Each merchant gets their own collection so one merchant's data never
-leaks into another's retrieval context. Documents are short, dated,
-plain-language facts distilled from that day's data upload (see
-rag/knowledge_builder.py) — this is what "trains" the system day by
-day: every daily upload adds fresh documents, so retrieval quality and
-grounding improve the longer a merchant uses the tool.
-
-Embeddings: Chroma's bundled default embedding function (a local
-MiniLM ONNX model, no external API call, no extra key needed) turns
-each document into a vector at index time and turns each query into a
-vector at search time; Chroma does the nearest-neighbour search.
+Chroma is loaded lazily so the FastAPI application can boot without
+initializing native ML/RAG components during module import.
 """
+
 from __future__ import annotations
 
 import uuid
 from typing import List, Optional
 
-import chromadb
-
 from app.config import settings
 
-_client = chromadb.PersistentClient(path=settings.CHROMA_DIR)
+
+_client = None
+
+
+def _get_client():
+    """
+    Create the Chroma client only when RAG is actually used.
+    This prevents Chroma/native dependencies from running during
+    FastAPI startup.
+    """
+    global _client
+
+    if _client is None:
+        import chromadb
+
+        _client = chromadb.PersistentClient(path=settings.CHROMA_DIR)
+
+    return _client
 
 
 def _collection_name(merchant_id: int) -> str:
@@ -30,26 +37,57 @@ def _collection_name(merchant_id: int) -> str:
 
 
 def get_collection(merchant_id: int):
-    return _client.get_or_create_collection(name=_collection_name(merchant_id))
+    client = _get_client()
+    return client.get_or_create_collection(
+        name=_collection_name(merchant_id)
+    )
 
 
-def add_documents(merchant_id: int, documents: List[str], metadatas: Optional[List[dict]] = None) -> int:
-    """Index new knowledge documents for this merchant. Returns count added."""
+def add_documents(
+    merchant_id: int,
+    documents: List[str],
+    metadatas: Optional[List[dict]] = None,
+) -> int:
+    """Index new knowledge documents for this merchant."""
+
     if not documents:
         return 0
+
     collection = get_collection(merchant_id)
+
     ids = [str(uuid.uuid4()) for _ in documents]
     metadatas = metadatas or [{} for _ in documents]
-    collection.add(documents=documents, ids=ids, metadatas=metadatas)
+
+    collection.add(
+        documents=documents,
+        ids=ids,
+        metadatas=metadatas,
+    )
+
     return len(documents)
 
 
-def query(merchant_id: int, question: str, top_k: int = 6) -> List[str]:
-    """Retrieve the most relevant indexed facts for a question / analysis task."""
+def query(
+    merchant_id: int,
+    question: str,
+    top_k: int = 6,
+) -> List[str]:
+    """Retrieve relevant indexed facts for a question."""
+
     collection = get_collection(merchant_id)
-    if collection.count() == 0:
+
+    count = collection.count()
+
+    if count == 0:
         return []
-    top_k = min(top_k, collection.count())
-    results = collection.query(query_texts=[question], n_results=top_k)
+
+    top_k = min(top_k, count)
+
+    results = collection.query(
+        query_texts=[question],
+        n_results=top_k,
+    )
+
     docs = results.get("documents", [[]])[0]
+
     return docs
