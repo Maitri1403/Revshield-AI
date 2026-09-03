@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RevShield AI</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="brand">
+      <span class="brand-mark">RS</span>
+      <span class="brand-name">RevShield AI</span>
+    </div>
+    <p class="auth-tagline">Detect. Protect. Recover. Grow.</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Log in</button>
+      <button class="auth-tab" data-tab="signup">Create account</button>
+    </div>
+
+    <form id="login-form" class="auth-form">
+      <label>Email</label>
+      <input type="email" id="login-email" required placeholder="you@business.com" />
+      <label>Password</label>
+      <input type="password" id="login-password" required placeholder="••••••••" />
+      <button type="submit" class="btn-primary">Log in</button>
+      <p class="auth-error" id="login-error"></p>
+    </form>
+
+    <form id="signup-form" class="auth-form hidden">
+      <label>Business name</label>
+      <input type="text" id="signup-business" required placeholder="Your Store Name" />
+      <label>Email</label>
+      <input type="email" id="signup-email" required placeholder="you@business.com" />
+      <label>Password</label>
+      <input type="password" id="signup-password" required placeholder="Min 6 characters" />
+      <button type="submit" class="btn-primary">Create account</button>
+      <p class="auth-error" id="signup-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app" class="app hidden">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">RS</span>
+      <span class="brand-name">RevShield AI</span>
+    </div>
+    <nav class="navbar" id="navbar">
+      <button class="nav-item active" data-view="dashboard">Dashboard</button>
+      <button class="nav-item" data-view="data">Data</button>
+      <button class="nav-item" data-view="risk">Risk &amp; Incidents</button>
+      <button class="nav-item" data-view="recovery">Recovery</button>
+      <button class="nav-item" data-view="offers">Offers</button>
+      <button class="nav-item" data-view="assistant">Ask RevShield</button>
+    </nav>
+    <div class="topbar-right">
+      <span id="business-name" class="business-name"></span>
+      <button id="logout-btn" class="btn-ghost">Log out</button>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view">
+      <h1>Business Health</h1>
+      <p class="subtitle">What's happening in your business right now.</p>
+
+      <div class="metric-grid">
+        <div class="metric-card">
+          <span class="metric-label">Revenue Today</span>
+          <span class="metric-value" id="m-revenue">—</span>
+        </div>
+        <div class="metric-card warn">
+          <span class="metric-label">Revenue at Risk</span>
+          <span class="metric-value" id="m-risk">—</span>
+        </div>
+        <div class="metric-card ok">
+          <span class="metric-label">Recoverable Revenue</span>
+          <span class="metric-value" id="m-recoverable">—</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Growth Opportunity</span>
+          <span class="metric-value" id="m-growth">—</span>
+        </div>
+      </div>
+
+      <div class="metric-grid secondary">
+        <div class="metric-card small">
+          <span class="metric-label">Risky Transactions</span>
+          <span class="metric-value" id="m-risky-count">—</span>
+        </div>
+        <div class="metric-card small">
+          <span class="metric-label">Open Payment Incidents</span>
+          <span class="metric-value" id="m-incidents-count">—</span>
+        </div>
+      </div>
+
+      <div class="dash-columns">
+        <div class="panel">
+          <h2>AI Priorities</h2>
+          <ul id="ai-priorities-list" class="priority-list"></ul>
+        </div>
+
+        <div class="panel">
+          <h2>AI Recovery Queue</h2>
+          <p class="psub">The AI already found these and drafted an offer. Approve or skip — it handles contacting the customer and recording the outcome.</p>
+          <div id="recovery-queue"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Live Activity</h2>
+          <p class="psub" id="activity-updated"></p>
+          <div id="activity-feed" class="activity-feed"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DATA -->
+    <section id="view-data" class="view hidden">
+      <h1>Business Data</h1>
+      <p class="subtitle">Upload your daily, weekly, or monthly data as CSV. Uploading day by day gives the AI the best picture — every upload retrains the risk/recovery analysis and adds to the knowledge base it reasons from.</p>
+
+      <div class="panel">
+        <h2>Upload a CSV</h2>
+        <form id="upload-form" class="upload-form">
+          <div class="field-row">
+            <label>Data type</label>
+            <select id="upload-type">
+              <option value="customers">Customers</option>
+              <option value="transactions" selected>Transactions</option>
+              <option value="orders">Orders</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <label>Date this data is for</label>
+            <input type="date" id="upload-date" />
+          </div>
+          <div class="field-row">
+            <label>CSV file</label>
+            <input type="file" id="upload-file" accept=".csv" required />
+          </div>
+          <button type="submit" class="btn-primary">Upload &amp; Analyze</button>
+        </form>
+        <div id="upload-result" class="upload-result hidden"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Upload history</h2>
+        <table class="data-table" id="uploads-table">
+          <thead><tr><th>Date</th><th>Transactions</th><th>Orders</th><th>Customers</th><th>Success Rate</th><th>Revenue</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RISK & INCIDENTS -->
+    <section id="view-risk" class="view hidden">
+      <h1>Risk &amp; Incidents</h1>
+      <p class="subtitle">Transactions the model flagged, and payment-state incidents that need attention.</p>
+
+      <div class="panel">
+        <h2>Open Incidents</h2>
+        <ul id="incidents-list" class="incident-list"></ul>
+      </div>
+
+      <div class="panel">
+        <h2>Revenue Autopsy</h2>
+        <div class="field-row inline">
+          <label>Date</label>
+          <input type="date" id="autopsy-date" />
+          <button id="autopsy-btn" class="btn-secondary">Why did revenue move?</button>
+        </div>
+        <p id="autopsy-result" class="ai-explanation hidden"></p>
+      </div>
+
+      <div class="panel">
+        <h2>Highest-risk transactions</h2>
+        <table class="data-table" id="risk-table">
+          <thead><tr><th>Transaction</th><th>Amount</th><th>Method</th><th>Status</th><th>Risk Score</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RECOVERY -->
+    <section id="view-recovery" class="view hidden">
+      <h1>Revenue Recovery</h1>
+      <p class="subtitle">Customers the AI identified as recoverable, ranked under your budget.</p>
+
+      <div class="panel">
+        <h2>Recovery Budget</h2>
+        <div class="budget-bar-wrap">
+          <div class="budget-bar"><div class="budget-bar-fill" id="budget-fill"></div></div>
+          <span id="budget-text">—</span>
+        </div>
+        <div class="field-row inline">
+          <label>Set budget</label>
+          <input type="number" id="budget-input" min="0" step="100" />
+          <button id="budget-save-btn" class="btn-secondary">Save</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>What-if Simulator</h2>
+        <div class="field-row inline">
+          <label>Discount %</label>
+          <input type="number" id="whatif-discount" min="0" max="50" value="10" />
+          <button id="whatif-btn" class="btn-secondary">Simulate</button>
+        </div>
+        <div id="whatif-result" class="whatif-result hidden"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Recovery Candidates</h2>
+        <table class="data-table" id="recovery-table">
+          <thead><tr><th>Rank</th><th>Reason</th><th>Value</th><th>Recovery Prob.</th><th>Recommended Action</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- OFFERS -->
+    <section id="view-offers" class="view hidden">
+      <h1>Offers — Approval Queue</h1>
+      <p class="subtitle">AI drafts these. Nothing goes to a customer until you approve, reject, or edit it.</p>
+
+      <div class="offer-list" id="offers-list"></div>
+    </section>
+
+    <!-- ASSISTANT -->
+    <section id="view-assistant" class="view hidden">
+      <h1>Ask RevShield</h1>
+      <p class="subtitle">Ask about your risk, revenue, incidents, or recovery status — grounded in your own data.</p>
+
+      <div class="chat-panel">
+        <div class="chat-messages" id="chat-messages"></div>
+        <form id="chat-form" class="chat-form">
+          <input type="text" id="chat-input" placeholder="What's the biggest problem in my business today?" autocomplete="off" />
+          <button type="submit" class="btn-primary">Send</button>
+        </form>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
