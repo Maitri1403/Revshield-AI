@@ -23,6 +23,13 @@ import json
 
 from sqlalchemy.orm import Session
 from app import models
+import pandas as pd
+
+from app.ml.risk_model import encode_payment_method, score_transactions
+from app.ml.forecasting import detect_revenue_risk
+from app.rag.knowledge_builder import build_daily_documents
+from app.rag import vector_store
+from app.agents.groq_client import chat
 
 SYSTEM_PROMPT = """You are the Analyst module inside RevShield AI, a revenue-protection \
 platform for online merchants. You are given a set of GROUNDED FACTS produced by the \
