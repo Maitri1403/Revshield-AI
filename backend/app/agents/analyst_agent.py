@@ -217,8 +217,8 @@ def run_full_analysis(db: Session, merchant_id: int, upload_date: str) -> dict:
     ]
 
     # Index today's facts into the RAG store — this is the "daily training"
-    docs = build_daily_documents(upload_date, risk_finding, incident_dicts, top_anomalies)
-    vector_store.add_documents(merchant_id, docs, metadatas=[{"date": upload_date, "type": "analysis"} for _ in docs])
+    #docs = build_daily_documents(upload_date, risk_finding, incident_dicts, top_anomalies)
+    #vector_store.add_documents(merchant_id, docs, metadatas=[{"date": upload_date, "type": "analysis"} for _ in docs])
 
     # Persist the summary so tomorrow's baseline includes today
     upload_row = (
