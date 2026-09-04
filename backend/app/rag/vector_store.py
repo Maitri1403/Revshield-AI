@@ -1,61 +1,47 @@
 """
-Real vector-store RAG, backed by Chroma.
-Chroma is loaded lazily so the FastAPI application can boot without
-initializing native ML/RAG components during module import.
-Uses a lightweight scikit-learn based embedding function instead of
-Chroma's default ONNX-based embedder, since onnxruntime crashes with
-an illegal-instruction error on some cloud hosts.
+Lightweight vector-store RAG — no Chroma/hnswlib, to stay within a
+512MB memory budget. Documents are embedded with a simple sklearn
+HashingVectorizer and stored as a small JSON file per merchant.
+Retrieval uses cosine similarity, computed with numpy.
 """
 from __future__ import annotations
+import json
+import os
 import uuid
 from typing import List, Optional
 
+import numpy as np
+from sklearn.feature_extraction.text import HashingVectorizer
+
 from app.config import settings
 
-_client = None
-_embedding_fn = None
+_vectorizer = None
 
 
-def _get_embedding_fn():
-    global _embedding_fn
-    if _embedding_fn is None:
-        from sklearn.feature_extraction.text import HashingVectorizer
-
-        class SklearnEmbeddingFunction:
-            def __init__(self, n_features: int = 256):
-                self._vectorizer = HashingVectorizer(
-                    n_features=n_features, alternate_sign=False, norm="l2"
-                )
-
-            def __call__(self, input):
-                vecs = self._vectorizer.transform(input).toarray()
-                return vecs.tolist()
-
-            def name(self):
-                return "sklearn-hashing"
-
-        _embedding_fn = SklearnEmbeddingFunction()
-    return _embedding_fn
+def _get_vectorizer():
+    global _vectorizer
+    if _vectorizer is None:
+        _vectorizer = HashingVectorizer(n_features=256, alternate_sign=False, norm="l2")
+    return _vectorizer
 
 
-def _get_client():
-    global _client
-    if _client is None:
-        import chromadb
-        _client = chromadb.PersistentClient(path=settings.CHROMA_DIR)
-    return _client
+def _store_path(merchant_id: int) -> str:
+    os.makedirs(settings.CHROMA_DIR, exist_ok=True)
+    return os.path.join(settings.CHROMA_DIR, f"merchant_{merchant_id}.json")
 
 
-def _collection_name(merchant_id: int) -> str:
-    return f"merchant_{merchant_id}"
+def _load(merchant_id: int) -> list[dict]:
+    path = _store_path(merchant_id)
+    if not os.path.exists(path):
+        return []
+    with open(path, "r") as f:
+        return json.load(f)
 
 
-def get_collection(merchant_id: int):
-    client = _get_client()
-    return client.get_or_create_collection(
-        name=_collection_name(merchant_id),
-        embedding_function=_get_embedding_fn(),
-    )
+def _save(merchant_id: int, records: list[dict]) -> None:
+    path = _store_path(merchant_id)
+    with open(path, "w") as f:
+        json.dump(records, f)
 
 
 def add_documents(
@@ -66,14 +52,19 @@ def add_documents(
     """Index new knowledge documents for this merchant."""
     if not documents:
         return 0
-    collection = get_collection(merchant_id)
-    ids = [str(uuid.uuid4()) for _ in documents]
+    vec = _get_vectorizer()
+    vectors = vec.transform(documents).toarray().tolist()
     metadatas = metadatas or [{} for _ in documents]
-    collection.add(
-        documents=documents,
-        ids=ids,
-        metadatas=metadatas,
-    )
+
+    records = _load(merchant_id)
+    for doc, vector, meta in zip(documents, vectors, metadatas):
+        records.append({
+            "id": str(uuid.uuid4()),
+            "document": doc,
+            "vector": vector,
+            "metadata": meta,
+        })
+    _save(merchant_id, records)
     return len(documents)
 
 
@@ -82,15 +73,20 @@ def query(
     question: str,
     top_k: int = 6,
 ) -> List[str]:
-    """Retrieve relevant indexed facts for a question."""
-    collection = get_collection(merchant_id)
-    count = collection.count()
-    if count == 0:
+    """Retrieve the most relevant indexed facts for a question."""
+    records = _load(merchant_id)
+    if not records:
         return []
-    top_k = min(top_k, count)
-    results = collection.query(
-        query_texts=[question],
-        n_results=top_k,
-    )
-    docs = results.get("documents", [[]])[0]
-    return docs
+
+    vec = _get_vectorizer()
+    q_vector = np.array(vec.transform([question]).toarray()[0])
+
+    scored = []
+    for r in records:
+        r_vector = np.array(r["vector"])
+        denom = (np.linalg.norm(q_vector) * np.linalg.norm(r_vector)) or 1e-9
+        similarity = float(np.dot(q_vector, r_vector) / denom)
+        scored.append((similarity, r["document"]))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [doc for _, doc in scored[:top_k]]
