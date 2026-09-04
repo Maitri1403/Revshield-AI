@@ -12,7 +12,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # MVP / local use — restrict this before any real deployment
+    allow_origins=["https://revshield-ai.netlify.app"],  # MVP / local use — restrict this before any real deployment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
