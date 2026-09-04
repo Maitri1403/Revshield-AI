@@ -13,3 +13,4 @@ python-dotenv==1.0.1
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 pyjwt==2.9.0
+onnxruntime==1.17.3
