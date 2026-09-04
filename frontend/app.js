@@ -1,4 +1,4 @@
-const API_BASE = window.REVSHIELD_API_BASE || "http://localhost:8000";
+const API_BASE = window.REVSHIELD_API_BASE || "https://revshield-ai-go39.onrender.com/";
 
 let token = localStorage.getItem("revshield_token") || null;
 let businessName = localStorage.getItem("revshield_business") || "";
